@@ -89,7 +89,7 @@ class ServerController {
 			List keySlices = cassandraClient.get_range_slices(keyspace,
 			new ColumnParent(columnFam), slicePredicate, keyRange, ConsistencyLevel.ONE);
 
-			println "count="+keySlices.size()
+			//println "count="+keySlices.size()
 			serverInfo.keySlices = keySlices
 			socket.close();
 			socket=null;
@@ -182,7 +182,7 @@ class ServerController {
 
     def show = {
         def serverInstance = Server.get(params.id)
-		println serverInstance.cassandraURL
+		//println serverInstance.cassandraURL
         def serverInfo
 		if (params.keyspace){
 			serverInfo = getServerInfo(serverInstance.getServer(),serverInstance.getPort(),params.keyspace)
