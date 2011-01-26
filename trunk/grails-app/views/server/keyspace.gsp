@@ -16,11 +16,18 @@
 		
             <h1>Keyspace - <g:link action="show" id="${params.id}" params="[keyspace:params.keyspace]">${params.keyspace}</g:link></h1>
 			<small> <br/>
+			
 			<g:each var="table" status="i" in="${params.tables}">
+			<g:if test="table.toString().contains('_fk')">
+				<g:link action="keyspace" id="${params.id}" params="[keyspace:params.keyspace,colFamily:table]"><i>${table}</i> </g:link>
+			
+			</g:if>
+			<g:else>
 				<g:link action="keyspace" id="${params.id}" params="[keyspace:params.keyspace,colFamily:table]">${table} </g:link>
 				<g:if test="${((i+1) % 12) == 0}">
 					<br/>
-				</g:if>
+			</g:else>			
+			</g:if>
 			</g:each>
 			</small>
 			<h3>Column Family - ${params.colFamily} </h3>
@@ -68,7 +75,8 @@
                     <tbody>
                     <g:each in="${params?.keySlices?.keySlices}" status="i" var="keySlice">
                         <tr class="${(i % 2) == 0 ? 'odd' : 'even'}">
-                            <td>${keySlice.getKey()}</td>
+						
+                            <td>${new String(keySlice.getKey())}</td>
 							
 								<g:each in="${keySlice.getColumns()}" status="k" var="column">
 								

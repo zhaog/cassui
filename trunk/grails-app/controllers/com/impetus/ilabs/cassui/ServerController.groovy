@@ -18,8 +18,6 @@ package com.impetus.ilabs.cassui
 
 import org.apache.thrift.transport.TSocket;
 import org.apache.cassandra.thrift.Cassandra;
-import org.apache.thrift.protocol.TBinaryProtocol;
-
 import org.apache.cassandra.thrift.KeyRange;
 import org.apache.cassandra.thrift.SlicePredicate;
 import org.apache.cassandra.thrift.SliceRange;
@@ -27,29 +25,59 @@ import org.apache.cassandra.thrift.ColumnOrSuperColumn;
 import org.apache.cassandra.thrift.ColumnParent;
 import org.apache.cassandra.thrift.ConsistencyLevel;
 import org.apache.cassandra.thrift.KeySlice;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.protocol.TProtocol;
+import org.apache.thrift.transport.TFramedTransport;
+import org.apache.thrift.transport.TSocket;
+import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
+import org.apache.cassandra.thrift.CfDef;
+import org.apache.cassandra.thrift.InvalidRequestException;
+import org.apache.cassandra.thrift.KsDef;
 
 class ServerController {
 
 	
 	def getServerInfo(server,int port,def exactKeyspace=null){
 		def serverInfo = [:]
-		TSocket socket = new TSocket(server, port);
-		TBinaryProtocol binaryProtocol = new TBinaryProtocol(socket, false, false);
-        Cassandra.Client cassandraClient = new Cassandra.Client(binaryProtocol);
+		TTransport socket = new TFramedTransport(new TSocket(
+				server, port));
+		TProtocol framedProtocol = new TBinaryProtocol(socket);
+		Cassandra.Client cassandraClient = new Cassandra.Client(framedProtocol);
 		try {
             socket.open();
-			serverInfo["clusterName"] = cassandraClient.get_string_property("cluster name")
+			serverInfo["clusterName"] = cassandraClient.describe_cluster_name();
 			def keyspaces = [:]
-			for (String keyspace : cassandraClient.describe_keyspaces()) {
+			for(KsDef keyspaceObj: cassandraClient.describe_keyspaces()) {
+			   String keyspace =keyspaceObj.getName();
+			   
+		
                 // Ignore system column family
                 if (keyspace.equals("system"))
                    continue;
+                   
+               Map<String, Map<String, String>> describesKeyspaces = new LinkedHashMap<String, Map<String, String>>();
+
+				List<CfDef> cfDefs = keyspaceObj.getCf_defs();
+				for (CfDef cfDef : cfDefs) {
+					Map<String, String> cfDetails = new LinkedHashMap<String, String>();
+					cfDetails
+							.put("Comparator Type", cfDef.getComparator_type());
+					cfDetails.put("Validation Class", cfDef
+							.getDefault_validation_class());
+
+					cfDetails.put("Comment", cfDef.getComment());
+					cfDetails.put("Column Type", cfDef.getColumn_type());
+					describesKeyspaces.put(cfDef.getName(), cfDetails);
+
+
+				}
 				if (exactKeyspace && keyspace.equals(exactKeyspace)) {
 					keyspaces = [:]
-					keyspaces.put(keyspace,cassandraClient.describe_keyspace(keyspace)?.sort{ a, b -> a?.key <=> b?.key })
+					keyspaces.put(keyspace,describesKeyspaces?.sort{ a, b -> a?.key <=> b?.key })
 					break;
 				} else {
-					keyspaces.put(keyspace,cassandraClient.describe_keyspace(keyspace)?.sort{ a, b -> a?.key <=> b?.key })
+					keyspaces.put(keyspace,describesKeyspaces?.sort{ a, b -> a?.key <=> b?.key })
 				}
             }
 			 keyspaces= keyspaces.sort { a, b -> a.key.toUpperCase() <=> b.key.toUpperCase() }
@@ -69,25 +97,26 @@ class ServerController {
 
 	def getDataInfo(server,int port,keyspace,columnFam,maxCount,startKey, endKey){
 		def serverInfo = [:]
-		TSocket socket = new TSocket(server, port);
-		TBinaryProtocol binaryProtocol = new TBinaryProtocol(socket, false, false);
-        Cassandra.Client cassandraClient = new Cassandra.Client(binaryProtocol);
+		TTransport socket = new TFramedTransport(new TSocket(
+				server, port));
+		TProtocol framedProtocol = new TBinaryProtocol(socket);
+		Cassandra.Client cassandraClient = new Cassandra.Client(framedProtocol);
 		try {
             socket.open();
 			KeyRange keyRange = new KeyRange(maxCount);
-			keyRange.setStart_key(startKey);
-			keyRange.setEnd_key(endKey);
-
+			keyRange.setStart_key(startKey.getBytes());
+			keyRange.setEnd_key(endKey.getBytes());
 			SliceRange sliceRange = new SliceRange();
-			
-			sliceRange.setStart(new byte[0] );
+			sliceRange.setStart(new byte[0]);
 			sliceRange.setFinish(new byte[0]);
 
 			SlicePredicate slicePredicate = new SlicePredicate();
 			slicePredicate.setSlice_range(sliceRange);
-
-			List keySlices = cassandraClient.get_range_slices(keyspace,
-			new ColumnParent(columnFam), slicePredicate, keyRange, ConsistencyLevel.ONE);
+            cassandraClient.set_keyspace(keyspace);
+			List keySlices = cassandraClient.get_range_slices(new ColumnParent(
+					columnFam), slicePredicate, keyRange,
+					ConsistencyLevel.ONE);
+					
 
 			//println "count="+keySlices.size()
 			serverInfo.keySlices = keySlices
@@ -247,8 +276,7 @@ class ServerController {
                 serverInstance.delete(flush: true)
                 flash.message = "${message(code: 'default.deleted.message', args: [message(code: 'server.label', default: 'Server'), params.id])}"
                 redirect(action: "list")
-            }
-            catch (org.springframework.dao.DataIntegrityViolationException e) {
+            }catch (org.springframework.dao.DataIntegrityViolationException e) {
                 flash.message = "${message(code: 'default.not.deleted.message', args: [message(code: 'server.label', default: 'Server'), params.id])}"
                 redirect(action: "show", id: params.id)
             }
