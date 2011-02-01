@@ -48,7 +48,22 @@
                                     <g:select name="cassandraVersion" from="${serverInstance.constraints.cassandraVersion.inList}" value="${serverInstance?.cassandraVersion}" valueMessagePrefix="server.cassandraVersion"  />
                                 </td>
                             </tr>
-                        
+							<tr class="prop">
+                                <td valign="top" class="name">
+                                    <label for="adminLogin"><g:message code="server.adminLogin.label" default="Admin Login" /></label>
+                                </td>
+                                <td valign="top" class="value ${hasErrors(bean: serverInstance, field: 'adminLogin', 'errors')}">
+                                    <g:textField name="adminLogin" value="${serverInstance?.adminLogin}" />
+                                </td>
+                            </tr>                        
+							<tr class="prop">
+                                <td valign="top" class="name">
+                                    <label for="adminPassword"><g:message code="server.adminPassword.label" default="Admin Password" /></label>
+                                </td>
+                                <td valign="top" class="value ${hasErrors(bean: serverInstance, field: 'adminPassword', 'errors')}">
+                                    <g:passwordField name="adminPassword" value="${serverInstance?.adminPassword}" />
+                                </td>
+                            </tr>     
                             <tr class="prop">
                                 <td valign="top" class="name">
                                   <label for="port"><g:message code="server.port.label" default="Port" /></label>

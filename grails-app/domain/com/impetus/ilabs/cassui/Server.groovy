@@ -4,6 +4,8 @@ class Server {
 	
 	String cassandraURL
 	String cassandraVersion = "0.6.4"
+	String adminLogin
+	String adminPassword
 
 	def getServer(){
 		if (cassandraURL) {
@@ -33,5 +35,7 @@ class Server {
     static constraints = {
 		cassandraURL()
 		cassandraVersion(inList:["0.6.4","0.7"])
+		adminLogin(nullable:true)
+		adminPassword(nullable:true)
     }
 }

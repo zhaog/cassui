@@ -16,119 +16,10 @@
  
 package com.impetus.ilabs.cassui
 
-import org.apache.thrift.transport.TSocket;
-import org.apache.cassandra.thrift.Cassandra;
-import org.apache.cassandra.thrift.KeyRange;
-import org.apache.cassandra.thrift.SlicePredicate;
-import org.apache.cassandra.thrift.SliceRange;
-import org.apache.cassandra.thrift.ColumnOrSuperColumn;
-import org.apache.cassandra.thrift.ColumnParent;
-import org.apache.cassandra.thrift.ConsistencyLevel;
-import org.apache.cassandra.thrift.KeySlice;
-import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.protocol.TProtocol;
-import org.apache.thrift.transport.TFramedTransport;
-import org.apache.thrift.transport.TSocket;
-import org.apache.thrift.transport.TTransport;
-import org.apache.thrift.transport.TTransportException;
-import org.apache.cassandra.thrift.CfDef;
-import org.apache.cassandra.thrift.InvalidRequestException;
-import org.apache.cassandra.thrift.KsDef;
 
 class ServerController {
 
-	
-	def getServerInfo(server,int port,def exactKeyspace=null){
-		def serverInfo = [:]
-		TTransport socket = new TFramedTransport(new TSocket(
-				server, port));
-		TProtocol framedProtocol = new TBinaryProtocol(socket);
-		Cassandra.Client cassandraClient = new Cassandra.Client(framedProtocol);
-		try {
-            socket.open();
-			serverInfo["clusterName"] = cassandraClient.describe_cluster_name();
-			def keyspaces = [:]
-			for(KsDef keyspaceObj: cassandraClient.describe_keyspaces()) {
-			   String keyspace =keyspaceObj.getName();
-			   
-		
-                // Ignore system column family
-                if (keyspace.equals("system"))
-                   continue;
-                   
-               Map<String, Map<String, String>> describesKeyspaces = new LinkedHashMap<String, Map<String, String>>();
-
-				List<CfDef> cfDefs = keyspaceObj.getCf_defs();
-				for (CfDef cfDef : cfDefs) {
-					Map<String, String> cfDetails = new LinkedHashMap<String, String>();
-					cfDetails
-							.put("Comparator Type", cfDef.getComparator_type());
-					cfDetails.put("Validation Class", cfDef
-							.getDefault_validation_class());
-
-					cfDetails.put("Comment", cfDef.getComment());
-					cfDetails.put("Column Type", cfDef.getColumn_type());
-					describesKeyspaces.put(cfDef.getName(), cfDetails);
-
-
-				}
-				if (exactKeyspace && keyspace.equals(exactKeyspace)) {
-					keyspaces = [:]
-					keyspaces.put(keyspace,describesKeyspaces?.sort{ a, b -> a?.key <=> b?.key })
-					break;
-				} else {
-					keyspaces.put(keyspace,describesKeyspaces?.sort{ a, b -> a?.key <=> b?.key })
-				}
-            }
-			 keyspaces= keyspaces.sort { a, b -> a.key.toUpperCase() <=> b.key.toUpperCase() }
-			//println keyspaces
-			serverInfo["keyspaces"]= keyspaces 
-			socket.close();
-			socket=null;
-		}
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-		return serverInfo
-	}
-	def getDataInfo(server,int port,keyspace,columnFam,maxCount){
-		return getDataInfo(server,port,keyspace,columnFam,maxCount,"", "")
-	}
-
-	def getDataInfo(server,int port,keyspace,columnFam,maxCount,startKey, endKey){
-		def serverInfo = [:]
-		TTransport socket = new TFramedTransport(new TSocket(
-				server, port));
-		TProtocol framedProtocol = new TBinaryProtocol(socket);
-		Cassandra.Client cassandraClient = new Cassandra.Client(framedProtocol);
-		try {
-            socket.open();
-			KeyRange keyRange = new KeyRange(maxCount);
-			keyRange.setStart_key(startKey.getBytes());
-			keyRange.setEnd_key(endKey.getBytes());
-			SliceRange sliceRange = new SliceRange();
-			sliceRange.setStart(new byte[0]);
-			sliceRange.setFinish(new byte[0]);
-
-			SlicePredicate slicePredicate = new SlicePredicate();
-			slicePredicate.setSlice_range(sliceRange);
-            cassandraClient.set_keyspace(keyspace);
-			List keySlices = cassandraClient.get_range_slices(new ColumnParent(
-					columnFam), slicePredicate, keyRange,
-					ConsistencyLevel.ONE);
-					
-
-			//println "count="+keySlices.size()
-			serverInfo.keySlices = keySlices
-			socket.close();
-			socket=null;
-		}
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-		return serverInfo
-	}
-	
+	def cassService
 	static allowedMethods = [save: "POST", update: "POST", delete: "POST"]
 
     def index = {
@@ -141,11 +32,11 @@ class ServerController {
 			return
 		}
 		def server = Server.get(params.id)
-		def serverInfo=getServerInfo(server.getServer(),server.getPort())
+		def serverInfo=cassService.getServerInfo(server.getServer(),server.getPort(),server.getAdminLogin(),server.getAdminPassword())
 		def keyspace = serverInfo.keyspaces[params.keyspace]
 		params.colDetails = serverInfo.keyspaces.get(params.keyspace).get(params.colFamily)
 		params.keySlices=[:]
-		params.keyCount = getDataInfo(server.getServer(),server.getPort(),params.keyspace,params.colFamily,params.max)?.keySlices?.size()
+		params.keyCount = cassService.getDataInfo(server.getServer(),server.getPort(),server.getAdminLogin(),server.getAdminPassword(),params.keyspace,params.colFamily,params.max)?.keySlices?.size()
 		render(view: "keyspace", model: [params:params,serverInstanceTotal:0])
 	}
 
@@ -155,11 +46,10 @@ class ServerController {
 			return
 		}
 		def server = Server.get(params.id)
-		def serverInfo=getServerInfo(server.getServer(),server.getPort())
+		def serverInfo=cassService.getServerInfo(server.getServer(),server.getPort(),server.getAdminLogin(),server.getAdminPassword())
 		def tables=[]
 		serverInfo.keyspaces[params.keyspace]?.each{keyspacestemp->
 			tables.add(keyspacestemp.key)
-			
 		}
 		params.tables=tables
 
@@ -174,9 +64,9 @@ class ServerController {
 			params.max = Math.min(params.max ? params.int('max') : 10, 1000000)
 		}
 		if (params.key){
-			params.keySlices = getDataInfo(server.getServer(),server.getPort(),params.keyspace,params.colFamily,params.max,params.key,params.key)
+			params.keySlices = cassService.getDataInfo(server.getServer(),server.getPort(),server.getAdminLogin(),server.getAdminPassword(),params.keyspace,params.colFamily,params.max,params.key,params.key)
        	} else {
-			params.keySlices = getDataInfo(server.getServer(),server.getPort(),params.keyspace,params.colFamily,params.max)
+			params.keySlices = cassService.getDataInfo(server.getServer(),server.getPort(),server.getAdminLogin(),server.getAdminPassword(),params.keyspace,params.colFamily,params.max)
         
 		}
 		params.keyCount = params.keySlices?.keySlices?.size()
@@ -214,9 +104,9 @@ class ServerController {
 		//println serverInstance.cassandraURL
         def serverInfo
 		if (params.keyspace){
-			serverInfo = getServerInfo(serverInstance.getServer(),serverInstance.getPort(),params.keyspace)
+			serverInfo = cassService.getServerInfo(serverInstance.getServer(),serverInstance.getPort(),serverInstance.getAdminLogin(),serverInstance.getAdminPassword(),params.keyspace)
 		} else {
-			serverInfo = getServerInfo(serverInstance.getServer(),serverInstance.getPort())
+			serverInfo = cassService.getServerInfo(serverInstance.getServer(),serverInstance.getPort(),serverInstance.getAdminLogin(),serverInstance.getAdminPassword())
 		}
         
 		if (!serverInstance) {
@@ -226,6 +116,8 @@ class ServerController {
         else {
 			if (!serverInfo) {
 				flash.message = "Please check if server is running!"
+			} else if (serverInfo.exception) {
+				flash.message = "Error! " + serverInfo.exception
 			}
             [serverInfo:serverInfo, serverInstance: serverInstance]
         }
