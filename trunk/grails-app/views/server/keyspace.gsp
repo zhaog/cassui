@@ -26,8 +26,9 @@
 				<g:link action="keyspace" id="${params.id}" params="[keyspace:params.keyspace,colFamily:table]">${table} </g:link>
 				<g:if test="${((i+1) % 12) == 0}">
 					<br/>
+				</g:if>
 			</g:else>			
-			</g:if>
+			
 			</g:each>
 			</small>
 			<h3>Column Family - ${params.colFamily} </h3>
