@@ -59,7 +59,7 @@
 											<table border="1">
 											<tr>
 											<g:each var="coldetail" status="y" in="${col.value?.sort{a,b-> b.key<=> a.key}}">
-												<td>${coldetail.key}: ${coldetail.value.replace("org.apache.cassandra.db.marshal.","")}</td>
+												<td>${coldetail.key}: ${coldetail.value}</td>
 											</g:each>
 											</tr>
 											</table>

@@ -9,6 +9,7 @@ import org.apache.cassandra.thrift.ColumnOrSuperColumn;
 import org.apache.cassandra.thrift.ColumnParent;
 import org.apache.cassandra.thrift.ConsistencyLevel;
 import org.apache.cassandra.thrift.KeySlice;
+
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TFramedTransport;
@@ -20,7 +21,7 @@ import org.apache.cassandra.thrift.InvalidRequestException;
 import org.apache.cassandra.thrift.KsDef;
 import org.apache.cassandra.thrift.AuthenticationRequest;
 import org.apache.cassandra.thrift.AuthenticationException;
-
+import org.apache.cassandra.thrift.ColumnDef;
 
 class CassService {
  
@@ -85,6 +86,8 @@ class CassService {
 
 					cfDetails.put("Comment", cfDef.getComment());
 					cfDetails.put("Column Type", cfDef.getColumn_type());
+					cfDetails.put("column_metadata",cfDef?.column_metadata)
+					//println "cfDef column_metadata"+ cfDef?.column_metadata
 					describesKeyspaces.put(cfDef.getName(), cfDetails);
 
 
