@@ -39,7 +39,7 @@
 					<br/>
 				</g:if>
 			</g:each>
-			<br/> <b>Index/FK Tables</b><a href="#" onclick="toggleComponent('indexTablesListDiv',this)">[+]</a><br/>
+			<br/> <b>FK Tables</b><a href="#" onclick="toggleComponent('indexTablesListDiv',this)">[+]</a><br/>
 			<div id="indexTablesListDiv" style="display:none;">
 			<g:each var="table" status="i" in="${params.tables.findAll{it.toString().contains('_fk')}}">
 				<g:link action="keyspace" id="${params.id}" params="[keyspace:params.keyspace,colFamily:table]">${table}&nbsp;&nbsp;&nbsp;</g:link>
